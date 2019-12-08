@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"testing"
 	"time"
+	"flag"
+	//"crypto/tls"
 )
 
 type handler http.HandlerFunc
@@ -16,8 +18,9 @@ func (f *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func server() {
 	h := new(handler)
+
 	s := &http.Server{
-		Addr:           ":1234",
+		Addr:           ":8080",
 		Handler:        h,
 		ReadTimeout:    1000 * time.Second,
 		WriteTimeout:   1000 * time.Second,
@@ -26,8 +29,20 @@ func server() {
 	log.Fatal(s.ListenAndServe())
 }
 
+func tlsServer(){
+	log.Fatal(http.ListenAndServeTLS(":8080", "./cert/cert.pem", "./cert/key.pem", new(handler)))
+}
+
 func TestTrunc(t *testing.T) {
-	go server()
+
+	usetls:=flag.Lookup("tls").Value.(flag.Getter).Get().(bool)
+
+	if usetls{
+		go tlsServer()
+	}else{
+		go server()
+	}
+	
 	do("localhost:1234", "/", "", "", 3, "http://")
 	t.Log("finished")
 

@@ -10,7 +10,6 @@ import (
 	conn "github.com/haibeey/trunc/connection"
 )
 
-
 var (
 	service   = flag.String("service", "localhost:8080", "The server url  to test")
 	resource  = flag.String("resource", "/", "The server resource to get")
@@ -18,7 +17,9 @@ var (
 	password  = flag.String("password", "", "")
 	protocol  = flag.String("protocol", "http://", "Protocol scheme to request url")
 	concLevel = flag.Uint64("concrs", 3, "The number of concurrent connection to test")
-	startreq = flag.Int("startreq", 10, "The number of start request to make for average calculation")
+	startreq  = flag.Int("startreq", 10, "The number of start request to make for average calculation")
+	usetls       = flag.Bool("tls", false, "Use tls for connection")
+	certpath  = flag.String("certpath", "./cert/cert.pem", "absolute path to tls certificate ")
 )
 
 func request(svc string, rsr string, prt string) time.Duration {
@@ -38,37 +39,34 @@ func request(svc string, rsr string, prt string) time.Duration {
 
 	resp, err := client.Do(req)
 
-
 	seeResponse(resp)
-	
 
 	return time.Now().Sub(startTime)
 }
 
 func seeResponse(resp *http.Response) {
-	
+
 }
 
-
 func do(service string, resource string, username string, password string, concLevel uint64, protocol string) {
-	fmt.Println(protocol+service+resource)
+	fmt.Println(protocol + service + resource)
 
 	//make first request when no connections to server
 	avgLatency := request(service, resource, protocol).Seconds()
-	for i:=0;i<10;i++{
-		avgLatency = (avgLatency+request(service, resource, protocol).Seconds())/2
+	for i := 0; i < 50; i++ {
+		avgLatency = (avgLatency + request(service, resource, protocol).Seconds()) / 2
 	}
-	
+
 	ticker := time.NewTicker(5000 * time.Millisecond)
 	done := make(chan bool)
 	//https://en.wikipedia.org/wiki/Basic_access_authentication
 	//Authorization: Basic username:password
 	var encdusrpwd string
-	if username !=""{
+	if username != "" {
 		encdusrpwd = base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
 	}
-	
-	cg := conn.NewConnGroup(service, resource, encdusrpwd)
+
+	cg := conn.NewConnGroup(resource, encdusrpwd)
 
 	var level uint64
 	for level = 1; level <= concLevel; level++ {
@@ -91,7 +89,7 @@ func do(service string, resource string, username string, password string, concL
 	avgLatencyConn := request(service, resource, protocol).Seconds()
 	//loop till all connection is closed
 	for !cg.Done() {
-		avgLatencyConn = (avgLatencyConn+request(service, resource, protocol).Seconds())/2
+		avgLatencyConn = (avgLatencyConn + request(service, resource, protocol).Seconds()) / 2
 	}
 	cg.ReleaseAll()
 
